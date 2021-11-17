@@ -1,5 +1,5 @@
 # Fedrated Learning With Domain Generalization
-Code to reproduce the experiments of **Federated Adversarial Domain Generalization**.
+Code to reproduce the experiments of **Fedrated Learning With Domain Generalization**.
 ## How to use it
 * Clone or download the repository
 ### Install the requirement
@@ -18,5 +18,4 @@ python train.py --lr0 0.001 --lr1 0.0007 --label_smoothing 0.2 --lr-threshold 0.
 cd pacs-ours
 python train.py --lr0 0.01 --lr1 0.007 --label_smoothing 0.01 --lr-threshold 0.0001 --factor 0.2 --epochs 7 --i-epochs 3 --rp-size 1024 --patience 20 --ite-warmup 100 --global_epochs  30
 ```
-
 
