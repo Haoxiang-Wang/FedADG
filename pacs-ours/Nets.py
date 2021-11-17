@@ -29,7 +29,7 @@ class Bottleneck(nn.Module):
         X = self.conv1(X)
         X = self.bn1(X)
         X = self.relu(X)
-
+ 
         X = self.conv2(X)
         X = self.bn2(X)
         X = self.relu(X)
