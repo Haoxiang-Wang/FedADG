@@ -6,6 +6,9 @@ import torch.nn.functional as F
 from torch import optim
 from torch.nn import init
 
+
+
+
 # distribution generator
 class GeneDistrNet(nn.Module):
     def __init__(self,input_size,hidden_size, optimizer,lr,momentum,weight_decay):
@@ -19,6 +22,8 @@ class GeneDistrNet(nn.Module):
             ("relu2",nn.ReLU()),
         ]))
         self.optimizer = optimizer(self.genedistri.parameters(),lr=lr,momentum=momentum,weight_decay=weight_decay)
+        self.G_merge_y = nn.Linear(self.num_labels, input_size,bias=False)
+        self.G_merge_z = nn.Linear(input_size, input_size,bias=False)
         self.initial_params()
 
     def initial_params(self):
@@ -82,7 +87,6 @@ class feature_extractor(nn.Module):
         x = x.view((x.size(0),256*6*6))
         x = self.classifier(x)
         return x
-
 # classifier
 class task_classifier(nn.Module):
     def __init__(self, hidden_size, optimizer, lr, momentum, weight_decay, class_num=5):
@@ -113,6 +117,7 @@ class task_classifier(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, hidden_size, num_labels, rp_size):
         super().__init__()
+        rp_to_size=rp_size
         self.features_pro = nn.Sequential(
             nn.Linear(rp_size+num_labels, 1024),
             nn.LeakyReLU(),
