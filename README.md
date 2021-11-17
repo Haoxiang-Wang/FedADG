@@ -24,7 +24,7 @@ cd pacs-ours
 python train.py --lr0 0.01 --lr1 0.007 --label_smoothing 0.01 --lr-threshold 0.0001 --factor 0.2 --epochs 7 --i-epochs 3 --rp-size 1024 --patience 20 --ite-warmup 100 --global_epochs  30
 ```
 
-#### Running baseline  (FedAVG)  on VLCS
+#### Running baseline  (FedAVG)  on PACS
 ``` 
 cd pacs-ours
 python trainFedLear.py --lr0 0.0001 --label_smoothing 0.01 --lr-threshold 0.0001 --factor 0.2 --epochs 10 --patience 20 --ite-warmup 100 --global_epochs  30
