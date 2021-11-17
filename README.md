@@ -13,9 +13,20 @@ Code to reproduce the experiments of **Fedrated Learning with Domain Generalizat
 cd src
 python train.py --lr0 0.001 --lr1 0.0007 --label_smoothing 0.2 --lr-threshold 0.0001 --factor 0.2 --epochs 10 --rp-size 1024 --patience 20 --ite-warmup 500 --global_epochs  20
 ```
+#### Running baseline  (FedAVG)  on VLCS
+``` 
+cd src
+python trainFedLear.py --lr0 0.001 --label_smoothing 0.2 --lr-threshold 0.0001 --factor 0.2 --epochs 10 --patience 20 --ite-warmup 500 --global_epochs  20
+```
 ### Running ours on PACS
 ``` 
 cd pacs-ours
 python train.py --lr0 0.01 --lr1 0.007 --label_smoothing 0.01 --lr-threshold 0.0001 --factor 0.2 --epochs 7 --i-epochs 3 --rp-size 1024 --patience 20 --ite-warmup 100 --global_epochs  30
+```
+
+#### Running baseline  (FedAVG)  on VLCS
+``` 
+cd pacs-ours
+python trainFedLear.py --lr0 0.0001 --label_smoothing 0.01 --lr-threshold 0.0001 --factor 0.2 --epochs 10 --patience 20 --ite-warmup 100 --global_epochs  30
 ```
 
