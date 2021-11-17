@@ -33,10 +33,10 @@ def args_parser():
     paser.add_argument('--patience', type=int, default=20, help='number of epochs to waut before reduce lr (20)')
     paser.add_argument('--lr-threshold', type=float, default=1e-4, help='lr schedular threshold')
     paser.add_argument('--ite-warmup', type=int, default=100, help='LR warm-up iterations (default:500)')
-    paser.add_argument('--label_smoothing', type=float, default=0.02, help='the rate of wrong label(default:0.2)')
+    paser.add_argument('--label_smoothing', type=float, default=0.01, help='the rate of wrong label(default:0.2)')
     paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')  # 4096-alex
     paser.add_argument('--num_labels', type=int, default=7, help='the categories of labels')  # pacs-7
-    paser.add_argument('--global_epochs', type=int, default=23, help='the num of global train epochs')
+    paser.add_argument('--global_epochs', type=int, default=30, help='the num of global train epochs')
     paser.add_argument('--path_root', type=str, default='../data/PACS/', help='the root of dataset')
     args = paser.parse_args()
     return args

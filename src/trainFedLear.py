@@ -16,20 +16,19 @@ def args_parser():
     paser.add_argument('--batch-size', type=int, default=16, help='batch size for training')
     paser.add_argument('--workers', type=int, default=4, help='number of data-loading workers')
     paser.add_argument('--lr0', type=float, default=0.001, help='learning rate 0')
-    paser.add_argument('--lr1', type=float, default=0.0005, help='learning rate 1')
     paser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
     paser.add_argument('--weight-dec', type=float, default=1e-5, help='0.005weight decay coefficient default 1e-5')
     paser.add_argument('--rp-size', type=int, default=1024, help='Random Projection size')
     paser.add_argument('--epochs', type=int, default=10, help='rounds of training')
     paser.add_argument('--current_epoch', type=int, default=1, help='current epoch in training')
-    paser.add_argument('--factor', type=float, default=0.3, help='lr decreased factor (0,1)')
+    paser.add_argument('--factor', type=float, default=0.2, help='lr decreased factor (0,1)')
     paser.add_argument('--patience', type=int, default=20, help='number of epochs to waut before reduce lr (20)')
     paser.add_argument('--lr-threshold', type=float, default=1e-4, help='lr schedular threshold')
     paser.add_argument('--ite-warmup', type=int, default=500, help='LR warm-up iterations (default:500)')
     paser.add_argument('--label_smoothing', type=float, default=0.2, help='the rate of wrong label(default:0.2)')
     paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')  # 4096-alex 2048-res
     paser.add_argument('--num_labels', type=int, default=5, help='the categories of labels')  # vlcs-5
-    paser.add_argument('--global_epochs', type=int, default=3, help='the num of global train epochs')
+    paser.add_argument('--global_epochs', type=int, default=20, help='the num of global train epochs')
     paser.add_argument('--path_root', type=str, default='../data/VLCS/', help='the root of dataset')
     args = paser.parse_args()
     return args
