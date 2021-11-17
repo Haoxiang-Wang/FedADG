@@ -21,10 +21,10 @@ def args_parser():
     paser.add_argument('--workers', type=int, default=4, help='number of data-loading workers')
     paser.add_argument('--pin', type=bool, default=True, help='pin-memory')
     paser.add_argument('--lr0', type=float, default=0.01, help='learning rate 0')
-    paser.add_argument('--lr1', type=float, default=0.0018, help='learning rate 1')
+    paser.add_argument('--lr1', type=float, default=0.007, help='learning rate 1')
     paser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
     paser.add_argument('--weight-dec', type=float, default=1e-5, help='0.005weight decay coefficient default 1e-5')
-    paser.add_argument('--rp-size', type=int, default=1000, help='Random Projection size 1024')  # 2048
+    paser.add_argument('--rp-size', type=int, default=1024, help='Random Projection size 1024')  # 2048
     paser.add_argument('--epochs', type=int, default=7, help='rounds of training')
     paser.add_argument('--current_epoch', type=int, default=1, help='current epoch in training')
     paser.add_argument('--factor', type=float, default=0.2, help='lr decreased factor (0.1)')
@@ -97,7 +97,6 @@ if __name__ == '__main__':
                 local_g = copy.deepcopy(global_generator)
                 trainer = localTrain(local_f, local_c, local_g, local_d[i], train_loaders[i], valid_loaders[i], args)
                 acc, w, wd, loss = trainer.train()
-                print(acc)
                 w_locals.append(w)
                 local_d[i] = wd
                 avg_ac += acc
