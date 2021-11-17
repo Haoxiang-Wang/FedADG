@@ -44,7 +44,6 @@ class localTrain(object):
         ac = [0.]
         best_model_dict = {}
         self.before_train(trainId='FC')
-        ac = [0.]
         global_los= [0., 0., 0., 0.]
         for i in range(self.args.epochs):
             loss_cla, loss_discri, loss_enc, loss_gene = 0., 0., 0., 0.
@@ -90,7 +89,7 @@ class localTrain(object):
         self.fetExtrac.eval()
         self.discri.optimizer.zero_grad()
         y_onehot = torch.zeros(y.size(0), self.args.num_labels).to(self.args.device)
-        y_onehot.scatter_(1, y.view(-1, 1), 0.5).to(self.args.device)
+        y_onehot.scatter_(1, y.view(-1, 1), 0.7).to(self.args.device)
         fakez = self.fetExtrac(x).detach()
         realz = self.generator(y_onehot,randomn,self.args.device).detach()
         loss_discri = torch.mean(torch.pow(1 - self.discri(y_onehot, realz), 2) + torch.pow(self.discri(y_onehot, fakez), 2))
