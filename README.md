@@ -1,5 +1,5 @@
-# Fedrated Learning With Domain Generalization
-Code to reproduce the experiments of **Fedrated Learning With Domain Generalization**.
+# Fedrated Learning with Domain Generalization
+Code to reproduce the experiments of **Fedrated Learning with Domain Generalization**.
 ## How to use it
 * Clone or download the repository
 ### Install the requirement
