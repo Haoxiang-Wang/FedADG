@@ -1,5 +1,4 @@
 import os
-
 import copy
 import torch
 import torch.utils.data
@@ -7,7 +6,7 @@ from torchvision import transforms
 import torch.nn.functional as F
 
 
-# test on target domain
+# Test on target domain data
 def test1(fetExtrac, classifier, valid_loader, device):
     fetExtrac = fetExtrac.eval()
     classifier = classifier.eval()
@@ -26,4 +25,4 @@ def test1(fetExtrac, classifier, valid_loader, device):
             pre = torch.max(label_out, 1)[1].data.squeeze()
             num_correct += (pre == y).sum()
             num_all += x.size(0)
-    return (num_correct*1.0/num_all)
+    return num_correct * 1.0 / num_all

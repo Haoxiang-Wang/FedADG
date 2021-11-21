@@ -1,24 +1,19 @@
 import argparse
 import copy
-import sys
-import matplotlib.pyplot as plt
-import numpy
-import random
-from torch.optim.lr_scheduler import LambdaLR
-
-from models.Fed import FedAvg
-from data_loader import get_pacs_loaders
-from Nets import feature_extractor, ResNet50Model, task_classifier
-from utils.layers import SinkhornDistance
-from utils.sampling import load_FCparas, get_loaders
-import torch
-import numpy as np
-from torch import optim
-from models.test import test1, test2
-from utils.utilss import LabelSmoothingLoss, GradualWarmupScheduler, LabelSmoothingLoss1
 import os
+import random
+import numpy
+import numpy as np
+import torch
+from torch import optim
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+from Nets import feature_extractor, task_classifier
+from models.Fed import FedAvg
+from models.test import test1
+from utils.sampling import load_FCparas, get_pacs_loaders
+from utils.utilss import LabelSmoothingLoss, GradualWarmupScheduler
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 def args_parser():
     paser = argparse.ArgumentParser()
@@ -28,19 +23,20 @@ def args_parser():
     paser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
     paser.add_argument('--weight-dec', type=float, default=1e-5, help='0.005weight decay coefficient default 1e-5')
     paser.add_argument('--epochs', type=int, default=10, help='rounds of training')
-    paser.add_argument('--current_epoch', type=int, default=1, help='current epoch in training')
     paser.add_argument('--factor', type=float, default=0.2, help='lr decreased factor (0.1)')
     paser.add_argument('--patience', type=int, default=20, help='number of epochs to waut before reduce lr (20)')
     paser.add_argument('--lr-threshold', type=float, default=1e-4, help='lr schedular threshold')
     paser.add_argument('--ite-warmup', type=int, default=100, help='LR warm-up iterations (default:500)')
     paser.add_argument('--label_smoothing', type=float, default=0.01, help='the rate of wrong label(default:0.2)')
-    paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')  # 4096-alex
-    paser.add_argument('--num_labels', type=int, default=7, help='the categories of labels')  # pacs-7
+    paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')
+    paser.add_argument('--num_labels', type=int, default=7, help='the categories of labels')
     paser.add_argument('--global_epochs', type=int, default=30, help='the num of global train epochs')
+    paser.add_argument('--pin', type=bool, default=True, help='pin-memory')
     paser.add_argument('--path_root', type=str, default='../data/PACS/', help='the root of dataset')
     args = paser.parse_args()
     return args
 
+# training of client
 class localTrain(object):
     def __init__(self, fetExtrac, classifier, train_loader, valid_loader, args):
         self.args = args
@@ -57,21 +53,17 @@ class localTrain(object):
                                                 after_scheduler=afsche_task)
 
     def train(self):
-        ac = [0.]
         best_model_dict = {}
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.opti_task, 2, eta_min=1e-7)
-        # server execute
         ac=[0.]
         self.fetExtrac.train()
         self.classifier.train()
-        for i1 in range(self.args.epochs):
-            print('\r{}/{}'.format(i1 + 1, self.args.epochs), end='')
+        for i in range(self.args.epochs):
+            print('\r{}/{}'.format(i + 1, self.args.epochs), end='')
             for t1, batch in enumerate(self.train_loader):
                 x, y = batch
                 x = x.to(self.args.device)
                 y = y.to(self.args.device)
-
-                # trainning feature extractor and classifier
+                # training feature extractor and classifier
                 self.opti_task.zero_grad()
                 feature = self.fetExtrac(x)
                 pre = self.classifier(feature)
@@ -80,7 +72,7 @@ class localTrain(object):
                 self.opti_task.step()
             valid_acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
             ac.append(valid_acc)
-            self.sche_task.step(i1,1.-ac[-1])
+            self.sche_task.step(i,1.-ac[-1])
             if ac[-1] >= np.max(ac):
                 best_model_dict['F'] = self.fetExtrac.state_dict()
                 best_model_dict['C'] = self.classifier.state_dict()
@@ -89,10 +81,8 @@ class localTrain(object):
 
 if __name__ == '__main__':
     args = args_parser()
-    args.device = torch.device('cuda:{}'.format(1) if torch.cuda.is_available() else 'cpu')
-    numpy.random.seed(1)
-    torch.manual_seed(1)
-    random.seed(1)
+    args.device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
+    torch.cuda.manual_seed(1)
 
     local_runs = 1
     client = ['photo', 'art_painting', 'cartoon', 'sketch']
@@ -106,7 +96,7 @@ if __name__ == '__main__':
             client = ['art_painting', 'cartoon', 'sketch', 'photo']
         print('\nIteration {}'.format(iteration))
 
-        train_loaders, valid_loaders, target_loader = get_loaders(args, client)
+        train_loaders, valid_loaders, target_loader = get_pacs_loaders(args, client)
 
         # initialize global models
         global_fetExtrac = feature_extractor(optim.SGD, args.lr0, args.momentum, args.weight_dec)
@@ -120,11 +110,11 @@ if __name__ == '__main__':
         models_global = []
         model_best_paras, best_acc = {}, 0.
         for t in range(args.global_epochs):
-            print('global train epoch: %d ' % (t + 1))
+            print('global training epoch: %d ' % (t + 1))
             w_locals, avg_ac = [], 0.
             # client update
             for i in range(3):
-                print('train domain {}/3'.format(i + 1))
+                print('source domain {}/3'.format(i + 1))
                 local_f = copy.deepcopy(global_fetExtrac)
                 local_c = copy.deepcopy(global_classifier)
                 trainer = localTrain(local_f, local_c, train_loaders[i], valid_loaders[i], args)

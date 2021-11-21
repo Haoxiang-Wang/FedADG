@@ -110,9 +110,8 @@ class task_classifier(nn.Module):
 
 # Discriminator
 class Discriminator(nn.Module):
-    def __init__(self, hidden_size, num_labels):
-        super().__init__()
-        rp_size = 512
+    def __init__(self, hidden_size, num_labels,rp_size):
+        super(Discriminator,self).__init__()
         self.features_pro = nn.Sequential(
             nn.Linear(rp_size, 1024),
             nn.LeakyReLU(),

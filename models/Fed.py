@@ -3,8 +3,12 @@ import torch
 
 # server perform aggregation parameters
 def FedAvg(w):
-    l_model = len(w[0])  # length of model
-    l_user = len(w)      # the length of user
+    """
+    :param w: paramrters (w_f, w_c, w_g) uploaded by clients.
+    :return: new parameters after aggregation.
+    """
+    l_model = len(w[0])  # number of model
+    l_user = len(w)      # the number of user
     w_s, w_avgs = [], []
     for i in range(l_model):
         w_s.append([])

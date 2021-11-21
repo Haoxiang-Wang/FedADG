@@ -1,20 +1,5 @@
 import torch
-import math
 from torch import nn
-from scipy.special import binom
-import torch.nn.functional as F
-
-
-def compare_parameters(model1, model2):
-    for p1, p2 in zip(model1.parameters(), model2.parameters()):
-        try:
-            if p1.allclose(p2):
-                print('equal')
-            else:
-                print('diff')
-
-        except:
-            print('diff layer')
 
 
 # label smoothing regularization

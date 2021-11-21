@@ -2,7 +2,7 @@ import argparse
 import copy
 import sys
 from models.Fed import FedAvg
-from models.Nets import feature_extractor, ResNet50Model, task_classifier
+from models.Nets import feature_extractor, task_classifier
 from utils.sampling import load_FCparas, get_loaders
 import torch
 import numpy as np
@@ -18,9 +18,7 @@ def args_parser():
     paser.add_argument('--lr0', type=float, default=0.001, help='learning rate 0')
     paser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
     paser.add_argument('--weight-dec', type=float, default=1e-5, help='0.005weight decay coefficient default 1e-5')
-    paser.add_argument('--rp-size', type=int, default=1024, help='Random Projection size')
     paser.add_argument('--epochs', type=int, default=10, help='rounds of training')
-    paser.add_argument('--current_epoch', type=int, default=1, help='current epoch in training')
     paser.add_argument('--factor', type=float, default=0.2, help='lr decreased factor (0,1)')
     paser.add_argument('--patience', type=int, default=20, help='number of epochs to waut before reduce lr (20)')
     paser.add_argument('--lr-threshold', type=float, default=1e-4, help='lr schedular threshold')
@@ -29,10 +27,12 @@ def args_parser():
     paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')  # 4096-alex 2048-res
     paser.add_argument('--num_labels', type=int, default=5, help='the categories of labels')  # vlcs-5
     paser.add_argument('--global_epochs', type=int, default=20, help='the num of global train epochs')
+    paser.add_argument('--pin', type=bool, default=True, help='pin-memory')
     paser.add_argument('--path_root', type=str, default='../data/VLCS/', help='the root of dataset')
     args = paser.parse_args()
     return args
 
+# training of client
 class localTrain(object):
     def __init__(self, fetExtrac, classifier, train_loader, valid_loader, args):
         self.args = args
@@ -51,18 +51,16 @@ class localTrain(object):
     def train(self):
         ac = [0.]
         best_model_dict = {}
-        # global execute
+        # training F and C
         for i in range(self.args.epochs):
             print('\r{}/{}'.format(i + 1, self.args.epochs), end='')
             for t, batch in enumerate(self.train_loader):
                 x, y = batch
                 x = x.to(self.args.device)
                 y = y.to(self.args.device)
-
                 self.fetExtrac.train()
                 self.classifier.train()
 
-                # train classifier
                 self.opti_task.zero_grad()
                 feature = self.fetExtrac(x)
                 pre = self.classifier(feature)
@@ -72,12 +70,11 @@ class localTrain(object):
 
             valid_acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
             ac.append(valid_acc)
-            self.sche_task.step(i,1.-ac[-1])
+            self.sche_task.step(i, 1.-ac[-1])
             if ac[-1] >= np.max(ac):
                 best_model_dict['F'] = self.fetExtrac.state_dict()
                 best_model_dict['C'] = self.classifier.state_dict()
         loc_w = [best_model_dict['F'], best_model_dict['C']]
-        dx = sys.getsizeof(loc_w)+sys.getsizeof(np.max(ac))
         return np.max(ac), loc_w
 
 if __name__ == '__main__':
@@ -106,12 +103,12 @@ if __name__ == '__main__':
         models_global = []
         model_best_paras, best_acc = {}, 0.
         for t in range(args.global_epochs):
-            print('global train epoch: %d ' % (t + 1))
+            print('global training epoch: %d ' % (t + 1))
             args.current_epoch = t+1
             w_locals, avg_ac = [], 0.
             # client update
             for i in range(3):
-                print('train domain {}/3'.format(i + 1))
+                print('source domain {}/3'.format(i + 1))
                 local_f = copy.deepcopy(global_fetExtrac)
                 local_c = copy.deepcopy(global_classifier)
                 trainer = localTrain(local_f, local_c, train_loaders[i], valid_loaders[i], args)
@@ -119,6 +116,7 @@ if __name__ == '__main__':
                 w_locals.append(w)
                 avg_ac += acc
             models_global.clear()
+            # server aggregates
             models_global = FedAvg(w_locals)
             avg_ac /= 3.
             if avg_ac > best_acc:

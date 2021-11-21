@@ -1,19 +1,14 @@
 import argparse
 import copy
 import random
-
 import numpy
 import torch
-from data_loader import get_pacs_loaders
 from torch import optim
 from localTrain import localTrain
-from models.Fed import FedAvg, FedAvg1
-from Nets import ResNet50Model, task_classifier, GeneDistrNet, Discriminator, feature_extractor
-from models.test import test1, test2
-from utils.sampling import load_FCparas, get_loaders
-import os
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+from models.Fed import FedAvg
+from Nets import task_classifier, GeneDistrNet, Discriminator, feature_extractor
+from models.test import test1
+from utils.sampling import load_FCparas, get_pacs_loaders
 
 def args_parser():
     paser = argparse.ArgumentParser()
@@ -24,7 +19,7 @@ def args_parser():
     paser.add_argument('--lr1', type=float, default=0.007, help='learning rate 1')
     paser.add_argument('--momentum', type=float, default=0.9, help='SGD momentum')
     paser.add_argument('--weight-dec', type=float, default=1e-5, help='0.005weight decay coefficient default 1e-5')
-    paser.add_argument('--rp-size', type=int, default=1024, help='Random Projection size 1024')  # 2048
+    paser.add_argument('--rp-size', type=int, default=1024, help='Random Projection size 1024')
     paser.add_argument('--epochs', type=int, default=7, help='rounds of training')
     paser.add_argument('--current_epoch', type=int, default=1, help='current epoch in training')
     paser.add_argument('--factor', type=float, default=0.2, help='lr decreased factor (0.1)')
@@ -33,8 +28,8 @@ def args_parser():
     paser.add_argument('--ite-warmup', type=int, default=100, help='LR warm-up iterations (default:500)')
     paser.add_argument('--label_smoothing', type=float, default=0.1, help='the rate of wrong label(default:0.2)')
     paser.add_argument('--input_size', type=int, default=2048, help='the size of hidden feature')
-    paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')  # 4096-alex 2048-res
-    paser.add_argument('--num_labels', type=int, default=7, help='the categories of labels')  # pacs-7
+    paser.add_argument('--hidden_size', type=int, default=4096, help='the size of hidden feature')
+    paser.add_argument('--num_labels', type=int, default=7, help='the categories of labels')
     paser.add_argument('--global_epochs', type=int, default=30, help='the num of global train epochs')
     paser.add_argument('--i_epochs', type=int, default=3, help='the num of independent epochs in local')
     paser.add_argument('--path_root', type=str, default='../data/PACS/', help='the root of dataset')
@@ -42,14 +37,10 @@ def args_parser():
     return args
 if __name__ == '__main__':
     args = args_parser()
-    args.device = torch.device('cuda:{}'.format(1) if torch.cuda.is_available() else 'cpu')
+    args.device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
     numpy.random.seed(1)
     torch.manual_seed(1)
     random.seed(1)
-    fileName = 'PACS_acc.txt'
-    file = open(fileName, 'a+')
-    file.truncate(0)
-    file.close()
     local_runs = 4
     client = ['photo', 'cartoon', 'sketch', 'art_painting']
     for iteration in range(1 * local_runs):
@@ -80,18 +71,16 @@ if __name__ == '__main__':
                                                weight_decay=args.weight_dec)
             local_d.append(global_discri)
 
-        # server execute
+        # server execution phase
         models_global = []
         model_best_paras, best_acc, best_id = {}, 0., 0
         for t in range(args.global_epochs):
-            print('global train epoch: %d ' % (t + 1))
+            print('global training epoch: %d ' % (t + 1))
             args.current_epoch = t + 1
             w_locals, avg_ac = [], 0.
-            tempo_acc, loss_all = [], []
             # client update
             for i in range(3):
-                args.weigh_class_num = domain_class_num[client[i]]
-                print('train domain {}/3'.format(i + 1))
+                print('source domain {}/3'.format(i + 1))
                 local_f = copy.deepcopy(global_fetExtrac)
                 local_c = copy.deepcopy(global_classifier)
                 local_g = copy.deepcopy(global_generator)
@@ -100,21 +89,14 @@ if __name__ == '__main__':
                 w_locals.append(w)
                 local_d[i] = wd
                 avg_ac += acc
-                tempo_acc.append(acc.item())
-                loss_all.append(loss)
             models_global.clear()
+            # aggregation
             models_global = FedAvg(w_locals)
-
-            loss_avg = [0, 0, 0, 0]
-            for lossi in range(4):
-                loss_avg[lossi] = (loss_all[0][lossi] + loss_all[1][lossi] + loss_all[2][lossi]) / 3
             avg_ac /= 3.
             if avg_ac > best_acc:
                 model_best_paras['F'] = models_global[0]
                 model_best_paras['C'] = models_global[1]
                 best_acc = avg_ac
-                best_id = t + 1
-                model_best_paras['loss'] = loss_avg
             global_fetExtrac.load_state_dict(models_global[0])
             global_classifier.load_state_dict(models_global[1])
             global_generator.load_state_dict(models_global[2])

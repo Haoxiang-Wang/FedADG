@@ -15,16 +15,10 @@ class localTrain(object):
         self.discri = discri.to(self.args.device)
         self.train_loader = train_loader
         self.valid_loader = valid_loader
-        self.opti_encoder = optim.SGD(self.fetExtrac.parameters(), args.lr1, args.momentum,weight_decay=args.weight_dec)
-        self.opti_task = optim.SGD(list(self.fetExtrac.parameters())+list(self.classifier.parameters()), args.lr0, args.momentum,weight_decay=args.weight_dec)
         self.lossFunc = LabelSmoothingLoss(args.label_smoothing, lbl_set_size=7)
-        self.fetExtrac.optimizer = optim.SGD(self.fetExtrac.parameters(), args.lr0, args.momentum,weight_decay=args.weight_dec)
-        self.discri.optimizer = optim.SGD(self.discri.parameters(), args.lr1, args.momentum,weight_decay=args.weight_dec)
+        self.opti_task = optim.SGD(list(self.fetExtrac.parameters()) + list(self.classifier.parameters()), args.lr0,
+                                   args.momentum, weight_decay=args.weight_dec)
 
-        afsche_fet = optim.lr_scheduler.ReduceLROnPlateau(self.opti_encoder, factor=args.factor, patience=args.patience,
-                                                          threshold=args.lr_threshold, min_lr=1e-7)
-        self.sche_fet = GradualWarmupScheduler(self.opti_encoder, total_epoch=args.ite_warmup,
-                                               after_scheduler=afsche_fet)
         afsche_task = optim.lr_scheduler.ReduceLROnPlateau(self.opti_task, factor=args.factor, patience=args.patience,
                                                           threshold=args.lr_threshold, min_lr=1e-7)
         self.sche_task = GradualWarmupScheduler(self.opti_task, total_epoch=args.ite_warmup,
@@ -44,16 +38,12 @@ class localTrain(object):
         ac = [0.]
         best_model_dict = {}
         self.before_train(trainId='FC')
-        global_los= [0., 0., 0., 0.]
+        # local training (E1)
         for i in range(self.args.epochs):
             loss_cla, loss_discri, loss_enc, loss_gene = 0., 0., 0., 0.
             print('\r{}/{}'.format(i + 1, self.args.epochs), end='')
             for t, batch in enumerate(self.train_loader):
-                loss_cla1, loss_discri1, loss_enc1, loss_gene1 =self.train_step(t, batch)
-                loss_cla+=loss_cla1
-                loss_discri+=loss_discri1
-                loss_enc += loss_enc1
-                loss_gene+=loss_gene1
+                self.train_step(batch)
 
             # update learning rate
             valid_acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
@@ -70,14 +60,13 @@ class localTrain(object):
                 global_los = [loss_cla, loss_discri, loss_enc, loss_gene]
         loc_w = [best_model_dict['F'], best_model_dict['C'], best_model_dict['G']]
 
-        return np.max(ac), loc_w, best_model_dict['D'], global_los
+        return np.max(ac), loc_w, best_model_dict['D']
 
-    def train_step(self, t, batch):
+    def train_step(self, batch):
         alpha = 0.85
         x, y = batch
         x = x.to(self.args.device)
         y = y.to(self.args.device)
-
         randomn = torch.rand(y.size(0), self.args.input_size).to(self.args.device)
 
         self.fetExtrac.train()
@@ -91,7 +80,7 @@ class localTrain(object):
         y_onehot = torch.zeros(y.size(0), self.args.num_labels).to(self.args.device)
         y_onehot.scatter_(1, y.view(-1, 1), 0.7).to(self.args.device)
         fakez = self.fetExtrac(x).detach()
-        realz = self.generator(y_onehot,randomn,self.args.device).detach()
+        realz = self.generator(y_onehot, randomn, self.args.device).detach()
         loss_discri = torch.mean(torch.pow(1 - self.discri(y_onehot, realz), 2) + torch.pow(self.discri(y_onehot, fakez), 2))
         loss_discri.backward()
         self.discri.optimizer.step()
@@ -119,7 +108,7 @@ class localTrain(object):
         return loss_cla.item(), loss_discri.item(), loss_enc.item(), loss_gene.item()
 
     def before_train(self,trainId = 'FC'):
-        if trainId == 'FC':
+        if trainId == 'FC':  # training F and C ( E0 = 5 )
                 ac=[0.]
                 self.fetExtrac.train()
                 self.classifier.train()

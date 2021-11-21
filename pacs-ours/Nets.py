@@ -1,17 +1,11 @@
 from collections import OrderedDict
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch import optim
 from torch.nn import init
-
-
-
 
 # distribution generator
 class GeneDistrNet(nn.Module):
-    def __init__(self,input_size,hidden_size, optimizer,lr,momentum,weight_decay):
+    def __init__(self, input_size, hidden_size, optimizer,lr,momentum,weight_decay):
         super(GeneDistrNet,self).__init__()
         self.num_labels = 7
         self.genedistri = nn.Sequential(OrderedDict([
@@ -22,8 +16,6 @@ class GeneDistrNet(nn.Module):
             ("relu2",nn.ReLU()),
         ]))
         self.optimizer = optimizer(self.genedistri.parameters(),lr=lr,momentum=momentum,weight_decay=weight_decay)
-        self.G_merge_y = nn.Linear(self.num_labels, input_size,bias=False)
-        self.G_merge_z = nn.Linear(input_size, input_size,bias=False)
         self.initial_params()
 
     def initial_params(self):

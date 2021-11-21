@@ -1,16 +1,10 @@
-import sys
-from math import pi
-
-import matplotlib.pyplot as plt
 import torch
-import numpy as np
 from torch import optim
-from scipy.interpolate import make_interp_spline
-
-from models.test import test1, test2
+from models.test import test1
 from utils.utilss import LabelSmoothingLoss, GradualWarmupScheduler
 
 
+# training of client
 class localTrain(object):
     def __init__(self, fetExtrac, classifier, generator, discri, train_loader, valid_loader, args):
         self.args = args
@@ -21,16 +15,12 @@ class localTrain(object):
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.opti_encoder = optim.SGD(fetExtrac.parameters(), args.lr1, args.momentum,weight_decay=args.weight_dec)
-        self.opti_task = optim.SGD(list(self.fetExtrac.parameters())+list(self.classifier.parameters()), args.lr0, args.momentum,weight_decay=args.weight_dec)
+        self.opti_task = optim.SGD(list(self.fetExtrac.parameters())+list(self.classifier.parameters()), args.lr0,
+                                   args.momentum,weight_decay=args.weight_dec)
         self.bce_loss = torch.nn.BCELoss()
         self.lossFunc = LabelSmoothingLoss(args.label_smoothing, lbl_set_size=5)
 
         # scheduler to update learning rate
-        afsche_fet = optim.lr_scheduler.ReduceLROnPlateau(self.opti_encoder, factor=args.factor, patience=args.patience,
-                                                          threshold=args.lr_threshold, min_lr=1e-7)
-        self.sche_fet = GradualWarmupScheduler(self.opti_encoder, total_epoch=args.ite_warmup,
-                                               after_scheduler=afsche_fet)
-        #
         afsche_task = optim.lr_scheduler.ReduceLROnPlateau(self.opti_task, factor=args.factor, patience=args.patience,
                                                            threshold=args.lr_threshold, min_lr=1e-7)
         self.sche_task = GradualWarmupScheduler(self.opti_task, total_epoch=args.ite_warmup,
@@ -41,34 +31,33 @@ class localTrain(object):
         self.sche_gene = GradualWarmupScheduler(self.generator.optimizer, total_epoch=args.ite_warmup,
                                                 after_scheduler=afsche_gen)
         afsche_dis = optim.lr_scheduler.ReduceLROnPlateau(self.discri.optimizer, factor=args.factor,
-                                                          patience=args.patience,
-                                                          threshold=args.lr_threshold, min_lr=1e-7)
+                                                          patience=args.patience, threshold=args.lr_threshold,
+                                                          min_lr=1e-7)
         self.sche_dis = GradualWarmupScheduler(self.discri.optimizer, total_epoch=args.ite_warmup,
                                                after_scheduler=afsche_dis)
 
     def train(self):
         best_model_dict = {}
 
-        # E0 to training F and C
-        if self.args.current_epoch != -1:
-            self.fetExtrac.train()
-            self.classifier.train()
-            for i in range(5):
-                print('\r{}/5'.format(i + 1), end='')
-                for t, batch in enumerate(self.train_loader):
-                    x, y = batch
-                    x = x.to(self.args.device)
-                    y = y.to(self.args.device)
-                    self.opti_task.zero_grad()
-                    feature = self.fetExtrac(x)
-                    pre = self.classifier(feature)
-                    loss_cla = self.lossFunc(pre, y)
-                    loss_cla.backward()
-                    self.opti_task.step()
-                acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
-                self.sche_task.step(i,1.-acc)
+        # training F and C ( E0 = 5 )
+        self.fetExtrac.train()
+        self.classifier.train()
+        for i in range(5):
+            print('\r{}/5'.format(i + 1), end='')
+            for t, batch in enumerate(self.train_loader):
+                x, y = batch
+                x = x.to(self.args.device)
+                y = y.to(self.args.device)
+                self.opti_task.zero_grad()
+                feature = self.fetExtrac(x)
+                pre = self.classifier(feature)
+                loss_cla = self.lossFunc(pre, y)
+                loss_cla.backward()
+                self.opti_task.step()
+            acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
+            self.sche_task.step(i, 1. - acc)
 
-        # local training E1
+        # local training (E1)
         g_ac = 0.
         ac = [0.]
         for i in range(self.args.epochs):
@@ -79,6 +68,7 @@ class localTrain(object):
 
             valid_acc = test1(self.fetExtrac, self.classifier, self.valid_loader, self.args.device)
             ac.append(valid_acc)
+            # update learning rate
             self.sche_dis.step(i+1, 1.-ac[-1])
             self.sche_gene.step(i+1, 1.-ac[-1])
             self.sche_task.step(i + 5 + 1, 1. - ac[-1])
